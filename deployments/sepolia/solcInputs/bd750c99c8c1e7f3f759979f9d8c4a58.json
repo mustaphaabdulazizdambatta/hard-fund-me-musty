@@ -1,0 +1,41 @@
+{
+  "language": "Solidity",
+  "sources": {
+    "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol": {
+      "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.0;\n\n// solhint-disable-next-line interface-starts-with-i\ninterface AggregatorV3Interface {\n  function decimals() external view returns (uint8);\n\n  function description() external view returns (string memory);\n\n  function version() external view returns (uint256);\n\n  function getRoundData(\n    uint80 _roundId\n  ) external view returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound);\n\n  function latestRoundData()\n    external\n    view\n    returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound);\n}\n"
+    },
+    "contracts/FundMe.sol": {
+      "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.8;\n\nimport \"@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol\";\nimport \"./PriceConverter.sol\";\n\ncontract FundMe {\n    using PriceConverter for uint256;\n\n    // State variables\n    mapping(address => uint256) public addressToAmountFunded;\n    address[] public funders;\n    \n    address public immutable owner;\n    uint256 public constant MINIMUM_USD = 50 * 10 ** 18;\n    AggregatorV3Interface public priceFeed;\n\n    // Event to emit when funding is received\n    event Funded(address indexed funder, uint256 amount);\n\n    // Constructor to set the owner and the price feed address\n    constructor(address priceFeedAddress) {\n        owner = msg.sender;\n        priceFeed = AggregatorV3Interface(priceFeedAddress);\n    }\n\n    // Function to fund the contract\n    function fund() public payable {\n        require(msg.value.getConversionRate(priceFeed) >= MINIMUM_USD, \"You need to spend more ETH!\");\n        \n        // Record the funding amount\n        addressToAmountFunded[msg.sender] += msg.value;\n\n        // Add funder to the list if they haven't funded before\n        if (addressToAmountFunded[msg.sender] == msg.value) {\n            funders.push(msg.sender);\n        }\n        \n        // Emit the Funded event\n        emit Funded(msg.sender, msg.value);\n    }\n\n    // Function for the owner to withdraw funds\n \n    // Modifier to restrict access to the owner\n\n}\n"
+    },
+    "contracts/PriceConverter.sol": {
+      "content": "// SPDX-License-Identifier: MIT\npragma solidity ^0.8.8;\n\nimport \"@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol\";\n\n// Why is this a library and not abstract?\n// Why not an interface?\nlibrary PriceConverter {\n    // We could make this public, but then we'd have to deploy it\n    function getPrice(AggregatorV3Interface priceFeed) internal view returns (uint256) {\n        // Sepolia ETH / USD Address\n        // https://docs.chain.link/data-feeds/price-feeds/addresses#Sepolia%20Testnet\n       \n        (, int256 answer, , , ) = priceFeed.latestRoundData();\n        // ETH/USD rate in 18 digit\n        return uint256(answer * 10000000000);\n        // or (Both will do the same thing)\n        // return uint256(answer * 1e10); // 1* 10 ** 10 == 10000000000\n    }\n\n    // 1000000000\n    function getConversionRate(uint256 ethAmount, AggregatorV3Interface priceFeed)\n        internal\n        view\n        returns (uint256)\n    {\n        uint256 ethPrice = getPrice(priceFeed);\n        uint256 ethAmountInUsd = (ethPrice * ethAmount) / 1000000000000000000;\n        // or (Both will do the same thing)\n        // uint256 ethAmountInUsd = (ethPrice * ethAmount) / 1e18; // 1 * 10 ** 18 == 1000000000000000000\n        // the actual ETH/USD conversion rate, after adjusting the extra 0s.\n        return ethAmountInUsd;\n    }\n}"
+    }
+  },
+  "settings": {
+    "optimizer": {
+      "enabled": false,
+      "runs": 200
+    },
+    "outputSelection": {
+      "*": {
+        "*": [
+          "abi",
+          "evm.bytecode",
+          "evm.deployedBytecode",
+          "evm.methodIdentifiers",
+          "metadata",
+          "devdoc",
+          "userdoc",
+          "storageLayout",
+          "evm.gasEstimates"
+        ],
+        "": [
+          "ast"
+        ]
+      }
+    },
+    "metadata": {
+      "useLiteralContent": true
+    }
+  }
+}
